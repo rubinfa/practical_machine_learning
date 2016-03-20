@@ -1,4 +1,4 @@
-[a link](https://github.com/rubinfa/practical_machine_learning/blob/master/practical_machine_learning_course_project.pdf)
+[Link to the project deliverable](https://github.com/rubinfa/practical_machine_learning/blob/master/practical_machine_learning_course_project.pdf)
 
 Course Project for Practical Machine Learning on Coursera (03/2016)
 
