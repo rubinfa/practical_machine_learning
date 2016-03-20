@@ -1,0 +1,126 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Fausto Rubino"
+output: html_document
+---
+      
+```{r, echo=FALSE}
+setwd('C:/Users/Fausto/Documents/coursera/data_scientist/Practical machine learning/Course Project')
+knitr::opts_chunk$set(cache=TRUE)
+```
+##Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+The purpose of this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, in order to predict the manner in which they did the exercise.
+
+
+##Load data and libraries
+First of all, let's import the R libraries and data that will be used throughout the analysis.  
+```{r, warning=FALSE}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+```
+We also set the seed for reproducibility purposes
+```{r, warning=FALSE}
+set.seed(82637)
+```
+##Getting the data
+Download the training and test sets 
+```{r, warning=FALSE}
+trainingSetUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testingSetUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(trainingSetUrl), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url(testingSetUrl), na.strings=c("NA","#DIV/0!",""))
+```
+
+##Partitioning the data sets
+We can now partition the training set into two (60% and 40% size respectively)
+```{r, warning=FALSE}
+inTrain <- createDataPartition(training$classe, p=0.6, list=FALSE)
+trainingDS <- training[inTrain, ]
+testingDS <- training[-inTrain, ]
+dim(trainingDS); 
+dim(testingDS)
+```
+
+##Cleaning the data sets
+The following procedures are applied to clean the dataset
+
+Procedure 1: Remove near zero covariates
+```{r, warning=FALSE}
+#Remove near zero covariates
+nsv <- nearZeroVar(trainingDS, saveMetrics = T)
+trainingDS <- trainingDS[, !nsv$nzv]
+
+nzv<- nearZeroVar(testingDS,saveMetrics=TRUE)
+testingDS <- testingDS[,nzv$nzv==FALSE]
+
+#Removing first ID variable
+trainingDS <- trainingDS[c(-1)]
+```
+
+Procedure 2: Remove variables with a high number of missing values
+```{r, warning=FALSE}
+trainingBuffer <- trainingDS
+for(i in 1:length(trainingDS)) {
+    if( sum( is.na( trainingDS[, i] ) ) / nrow(trainingDS) >= .7) {
+        for(i1 in 1:length(trainingBuffer)) {
+            if( length( grep(names(trainingDS[i]), names(trainingBuffer)[i1]) ) == 1)  {
+                trainingBuffer <- trainingBuffer[ , -i1]
+            }   
+        } 
+    }
+}
+#Repopulate the original training dataframe with removed variables with high level of NAs
+trainingDS <- trainingBuffer
+```
+
+Procedure 3: Remove variables which are not relevant for prediction "user_name" "raw_timestamp_part_1" "raw_timestamp_part_2" "cvtd_timestamp"
+```{r, warning=FALSE}
+c1 <- colnames(trainingDS)
+c2 <- colnames(trainingDS[, -c(1:4, 58)]) #removing "user_name"  "raw_timestamp_part_1" "raw_timestamp_part_2" "cvtd_timestamp" "classe"" variable
+testingDS <- testingDS[c1]
+testing <- testing[c2]
+```
+```{r, echo=FALSE}
+for (i in 1:length(testing) ) {
+    for(j in 1:length(trainingDS)) {
+        if( length( grep(names(trainingDS[i]), names(testing)[j]) ) == 1)  {
+            class(testing[j]) <- class(trainingDS[i])
+        }      
+    }      
+}
+```
+
+##Building the model
+###Using Decision trees
+```{r, warning=FALSE}
+set.seed(91919)
+model1Fit <- rpart(classe ~ ., data=trainingDS, method="class")
+```
+Let's print the decision tree using the fancyRpartPlot library
+```{r, warning=FALSE}
+fancyRpartPlot(model1Fit)
+```
+Let's apply the model to the testing data frame and print the confusion matrix to test the accuracy of results
+```{r, warning=FALSE}
+predictionsModel1 <- predict(model1Fit, testingDS, type = "class")
+print(confusionMatrix(predictionsModel1, testingDS$classe))
+```
+The decision tree generated a model with accuracy = 0.8704.
+###Using Random Forest
+```{r, warning=FALSE}
+set.seed(91919)
+model2Fit <- randomForest(classe ~ ., data=trainingDS)
+```
+```{r, warning=FALSE}
+predictionsModel2 <- predict(model2Fit, testingDS, type = "class")
+print(confusionMatrix(predictionsModel2, testingDS$classe))
+```
+The decision tree yialded better results than the decision tree model # with accuracy =  0.9985.
+
+The expected out of sample error is 1-0.9985 = 0.15%.
+
